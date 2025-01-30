@@ -1,10 +1,10 @@
 namespace ESS.Domain.Entities;
 public class TenantAuditLog
 {
-    public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
-    public string Action { get; set; }
-    public string Details { get; set; }
-    public DateTime Timestamp { get; set; }
-    public virtual Tenant Tenant { get; set; }
+    public required Guid Id { get; set; }
+    public required Guid TenantId { get; set; }
+    public required string Action { get; set; }
+    public required string Details { get; set; }
+    public required DateTime Timestamp { get; set; }
+    public virtual Tenant? Tenant { get; set; }
 }

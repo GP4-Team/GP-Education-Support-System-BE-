@@ -7,14 +7,31 @@ using ESS.Application.Common.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel to listen on all interfaces
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(80); // Listen on port 80 for all network interfaces
+});
+
 // Add Serilog
-builder.Host.UseSerilog((context, configuration) => 
+builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 // Add application layer
 builder.Services.AddApplication();
@@ -24,10 +41,19 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // Add health checks
 builder.Services.AddHealthChecks()
-    .AddRedis(builder.Configuration["Redis:Configuration"]!)
-    .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!);
+    .AddNpgSql(
+        builder.Configuration.GetConnectionString("DefaultConnection")!,
+        name: "database",
+        tags: new[] { "db", "sql", "postgresql" })
+    .AddRedis(
+        builder.Configuration["Redis:Configuration"]!,
+        name: "redis",
+        tags: new[] { "cache", "redis" });
 
 var app = builder.Build();
+
+// Enable CORS
+app.UseCors("AllowAll");
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -36,22 +62,59 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.UseAuthorization();
+// Basic health probe
+app.MapGet("/", () => "ESS API Running");
 
 // Add health check endpoint
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
+    Predicate = _ => true,
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+// Add detailed health check endpoint
+app.MapHealthChecks("/healthz", new HealthCheckOptions
+{
+    Predicate = _ => true,
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = new
+        {
+            Status = report.Status.ToString(),
+            Duration = report.TotalDuration,
+            Info = report.Entries.Select(e => new
+            {
+                Key = e.Key,
+                Status = e.Value.Status.ToString(),
+                Description = e.Value.Description,
+                Duration = e.Value.Duration,
+                Exception = e.Value.Exception?.Message
+            })
+        };
+        await System.Text.Json.JsonSerializer.SerializeAsync(
+            context.Response.Body,
+            result,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+        );
+    }
 });
 
 app.MapControllers();
 
-// Ensure database is created and migrated
-using (var scope = app.Services.CreateScope())
+// Initialize database
+try
 {
-    var initializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
-    await initializer.InitializeAsync();
+    using (var scope = app.Services.CreateScope())
+    {
+        var initializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
+        await initializer.InitializeAsync();
+        app.Logger.LogInformation("Database initialized successfully");
+    }
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "An error occurred while initializing the database");
 }
 
 app.Run();

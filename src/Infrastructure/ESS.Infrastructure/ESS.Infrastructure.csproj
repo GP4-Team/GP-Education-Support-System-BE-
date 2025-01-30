@@ -5,7 +5,13 @@
     <ProjectReference Include="..\..\Core\ESS.Domain\ESS.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
+	<ItemGroup>
+		<Content Remove="appsettings.Infrastructure.json" />
+		<None Include="appsettings.Infrastructure.json">
+			<CopyToPublishDirectory>Never</CopyToPublishDirectory>
+		</None>
+	</ItemGroup>
+	<ItemGroup>
     <PackageReference Include="Finbuckle.MultiTenant" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
