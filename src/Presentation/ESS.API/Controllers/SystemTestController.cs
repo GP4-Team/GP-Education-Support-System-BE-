@@ -7,7 +7,7 @@ using ESS.Domain.Entities;
 namespace ESS.API.Controllers;
 
 [ApiController]
-[Route("api/system")]  // More specific route
+[Route("api/system")]
 public class SystemTestController : ControllerBase
 {
     private readonly ApplicationDbContext _dbContext;
@@ -33,18 +33,26 @@ public class SystemTestController : ControllerBase
         try
         {
             var canConnect = await _dbContext.Database.CanConnectAsync();
-            var pendingMigrations = await _dbContext.Database.GetPendingMigrationsAsync();
+            var pendingMigrations = (await _dbContext.Database.GetPendingMigrationsAsync()).ToList();
             var connectionString = _dbContext.Database.GetConnectionString();
+            var currentDatabase = _dbContext.Database.GetDbConnection().Database;
 
-            // Mask sensitive information
-            var maskedConnectionString = connectionString?.Replace(_configuration["POSTGRES_PASSWORD"] ?? "postgres", "***");
+            // Safe masking of connection string
+            string? maskedConnectionString = null;
+            if (!string.IsNullOrEmpty(connectionString))
+            {
+                var password = _configuration["POSTGRES_PASSWORD"];
+                maskedConnectionString = !string.IsNullOrEmpty(password)
+                    ? connectionString.Replace(password, "***")
+                    : connectionString.Replace("postgres", "***"); // fallback
+            }
 
             return Ok(new
             {
                 DatabaseConnection = canConnect,
-                PendingMigrations = pendingMigrations.ToList(),
-                CurrentDatabase = _dbContext.Database.GetDbConnection().Database,
-                ConnectionString = maskedConnectionString
+                PendingMigrations = pendingMigrations,
+                CurrentDatabase = currentDatabase,
+                ConnectionString = maskedConnectionString ?? "Connection string not available"
             });
         }
         catch (Exception ex)
@@ -63,21 +71,26 @@ public class SystemTestController : ControllerBase
     {
         try
         {
-            // Validate if tenant with similar identifier already exists
+            // Generate unique tenant details
             var tenantId = Guid.NewGuid();
             var identifier = $"test-{DateTime.UtcNow.Ticks}";
 
+            // Check for existing tenant
             if (await _dbContext.Tenants.AnyAsync(t => t.Identifier == identifier))
             {
                 return BadRequest(new { error = "Tenant with similar identifier already exists" });
             }
+
+            // Default connection string with fallback
+            var connectionString = _configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Default connection string is not configured");
 
             var tenant = new Tenant
             {
                 Id = tenantId,
                 Name = "Test Tenant",
                 Identifier = identifier,
-                ConnectionString = _configuration.GetConnectionString("DefaultConnection"),
+                ConnectionString = connectionString,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -102,15 +115,22 @@ public class SystemTestController : ControllerBase
                 // Cache the tenant information
                 await _cacheService.SetAsync(
                     $"tenant_domain_{domain.Domain}",
-                    tenant.Id,
+                    tenant,  // Store the whole tenant object instead of just the ID
                     TimeSpan.FromHours(1));
 
                 await transaction.CommitAsync();
+
+                _logger.LogInformation(
+                    "Created test tenant. ID: {TenantId}, Domain: {Domain}",
+                    tenant.Id,
+                    domain.Domain);
+
                 return Ok(new { tenant, domain });
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                _logger.LogError(ex, "Failed to create test tenant");
                 throw;
             }
         }

@@ -1,11 +1,11 @@
-// ESS.Infrastructure/DependencyInjection.cs
 using ESS.Application.Common.Interfaces;
 using ESS.Infrastructure.Caching;
+using ESS.Infrastructure.MultiTenancy.TenantResolution;
 using ESS.Infrastructure.Persistence;
+using ESS.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 namespace ESS.Infrastructure;
 
@@ -15,22 +15,24 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var infrastructureConfig = new ConfigurationBuilder()
-        .SetBasePath(Directory.GetCurrentDirectory())
-        .AddJsonFile("infrastructure.settings.json", optional: true)
-        .Build();
+        // Register DbContext
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(
-                configuration.GetConnectionString("DefaultConnection")));
+                configuration.GetConnectionString("DefaultConnection"),
+                b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
+        // Redis Cache
         services.AddStackExchangeRedisCache(options =>
         {
             options.Configuration = configuration["Redis:Configuration"];
             options.InstanceName = "ESS_";
         });
 
+        // Register Services
         services.AddScoped<IDbInitializer, DbInitializer>();
         services.AddScoped<ICacheService, RedisCacheService>();
+        services.AddScoped<ITenantService, TenantService>();
+        services.AddScoped<ITenantResolver, CachingTenantResolver>();
 
         return services;
     }

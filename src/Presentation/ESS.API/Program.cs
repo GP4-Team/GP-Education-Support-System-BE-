@@ -4,13 +4,14 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using ESS.Infrastructure;
 using ESS.Application;
 using ESS.Application.Common.Interfaces;
+using ESS.API.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel to listen on all interfaces
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.ListenAnyIP(80); // Listen on port 80 for all network interfaces
+    serverOptions.ListenAnyIP(80);
 });
 
 // Add Serilog
@@ -36,7 +37,7 @@ builder.Services.AddCors(options =>
 // Add application layer
 builder.Services.AddApplication();
 
-// Add infrastructure layer
+// Add infrastructure layer (includes tenant services)
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Add health checks
@@ -65,14 +66,12 @@ if (app.Environment.IsDevelopment())
 // Basic health probe
 app.MapGet("/", () => "ESS API Running");
 
-// Add health check endpoint
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     Predicate = _ => true,
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
 });
 
-// Add detailed health check endpoint
 app.MapHealthChecks("/healthz", new HealthCheckOptions
 {
     Predicate = _ => true,
@@ -100,6 +99,18 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions
     }
 });
 
+// Add middleware
+app.UseExceptionHandler("/error");
+app.UseHttpsRedirection();
+app.UseRouting();
+
+// Add tenant resolution middleware
+app.UseTenantResolution();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Map controllers
 app.MapControllers();
 
 // Initialize database
