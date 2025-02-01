@@ -27,7 +27,51 @@ public class TenantService : ITenantService
         _logger = logger;
         _configuration = configuration;
     }
+    public async Task<Tenant?> GetTenantByIdAsync(Guid id)
+    {
+        var cacheKey = $"tenant_id_{id}";
 
+        // Try cache first
+        var tenant = await _cacheService.GetAsync<Tenant>(cacheKey);
+        if (tenant != null)
+        {
+            return tenant;
+        }
+
+        // Get from database
+        tenant = await _context.Tenants
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (tenant != null)
+        {
+            await _cacheService.SetAsync(cacheKey, tenant, TimeSpan.FromMinutes(30));
+        }
+
+        return tenant;
+    }
+
+    public async Task<Tenant?> GetTenantByIdentifierAsync(string identifier)
+    {
+        var cacheKey = $"tenant_identifier_{identifier}";
+
+        // Try cache first
+        var tenant = await _cacheService.GetAsync<Tenant>(cacheKey);
+        if (tenant != null)
+        {
+            return tenant;
+        }
+
+        // Get from database
+        tenant = await _context.Tenants
+            .FirstOrDefaultAsync(t => t.Identifier == identifier);
+
+        if (tenant != null)
+        {
+            await _cacheService.SetAsync(cacheKey, tenant, TimeSpan.FromMinutes(30));
+        }
+
+        return tenant;
+    }
     public async Task<Tenant?> GetTenantByDomainAsync(string domain)
     {
         return await _context.TenantDomains

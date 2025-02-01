@@ -9,6 +9,8 @@ namespace ESS.Infrastructure.MultiTenancy.TenantResolution;
 
 public class TenantResolutionMiddleware
 {
+    private const string TenantIdHeader = "X-Tenant-ID";
+    private const string TenantIdentifierHeader = "X-Tenant-Identifier";
     private readonly RequestDelegate _next;
     private readonly ILogger<TenantResolutionMiddleware> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -32,7 +34,6 @@ public class TenantResolutionMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Check if the path should be excluded from tenant resolution
         var path = context.Request.Path.Value?.ToLowerInvariant();
         if (path != null && ExcludedPaths.Any(excluded => path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)))
         {
@@ -43,30 +44,26 @@ public class TenantResolutionMiddleware
         try
         {
             using var scope = _scopeFactory.CreateScope();
-            var tenantResolver = scope.ServiceProvider.GetRequiredService<ITenantResolver>();
+            var tenantService = scope.ServiceProvider.GetRequiredService<ITenantService>();
 
-            var host = context.Request.Host.Host;
-            var tenant = await tenantResolver.ResolveTenantAsync(host);
+            // Try to resolve tenant from headers first
+            var tenant = await ResolveTenantFromHeadersAsync(context, tenantService);
+
+            // If no tenant found from headers, try domain resolution
+            if (tenant == null)
+            {
+                var tenantResolver = scope.ServiceProvider.GetRequiredService<ITenantResolver>();
+                var host = context.Request.Host.Host;
+                tenant = await tenantResolver.ResolveTenantAsync(host);
+            }
 
             if (tenant != null)
             {
-                context.Items["CurrentTenant"] = tenant;
-
-                if (!context.Response.HasStarted)
-                {
-                    context.Response.Headers["X-Tenant-Id"] = tenant.Id.ToString();
-                }
-
-                await _next(context);
+                await HandleValidTenantAsync(context, tenant);
             }
             else
             {
-                _logger.LogWarning("No tenant found for host: {Host}", host);
-                context.Response.StatusCode = StatusCodes.Status404NotFound;
-                context.Response.ContentType = "application/json";
-
-                var error = new { error = "Tenant not found" };
-                await context.Response.WriteAsync(JsonSerializer.Serialize(error));
+                await HandleTenantNotFoundAsync(context);
             }
         }
         catch (Exception ex)
@@ -74,5 +71,63 @@ public class TenantResolutionMiddleware
             _logger.LogError(ex, "Error processing tenant resolution");
             throw;
         }
+    }
+
+    private async Task<Tenant?> ResolveTenantFromHeadersAsync(HttpContext context, ITenantService tenantService)
+    {
+        // Try to get tenant by ID first
+        if (context.Request.Headers.TryGetValue(TenantIdHeader, out var tenantId) &&
+            Guid.TryParse(tenantId, out var parsedTenantId))
+        {
+            var tenant = await tenantService.GetTenantByIdAsync(parsedTenantId);
+            if (tenant != null)
+            {
+                _logger.LogInformation("Tenant resolved from header ID: {TenantId}", parsedTenantId);
+                return tenant;
+            }
+        }
+
+        // Try to get tenant by identifier
+        if (context.Request.Headers.TryGetValue(TenantIdentifierHeader, out var identifier) &&
+            !string.IsNullOrEmpty(identifier))
+        {
+            var tenant = await tenantService.GetTenantByIdentifierAsync(identifier!);
+            if (tenant != null)
+            {
+                _logger.LogInformation("Tenant resolved from header identifier: {Identifier}", identifier.ToString());
+                return tenant;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task HandleValidTenantAsync(HttpContext context, Tenant tenant)
+    {
+        if (!tenant.IsActive)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Tenant is inactive" }));
+            return;
+        }
+
+        context.Items["CurrentTenant"] = tenant;
+
+        if (!context.Response.HasStarted)
+        {
+            context.Response.Headers[TenantIdHeader] = tenant.Id.ToString();
+            context.Response.Headers[TenantIdentifierHeader] = tenant.Identifier;
+        }
+
+        await _next(context);
+    }
+
+    private async Task HandleTenantNotFoundAsync(HttpContext context)
+    {
+        _logger.LogWarning("No tenant found for request: {Host}", context.Request.Host.Host);
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Tenant not found" }));
     }
 }
