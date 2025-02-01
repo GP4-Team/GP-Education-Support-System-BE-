@@ -1,12 +1,11 @@
-﻿using ESS.Infrastructure.MultiTenancy.TenantResolution;
+﻿using Microsoft.AspNetCore.Builder;
 
-namespace ESS.API.Extensions;
+namespace ESS.Infrastructure.MultiTenancy.TenantResolution;
 
-public static class TenantResolutionExtensions
+public static class TenantResolutionMiddlewareExtensions
 {
-    public static IApplicationBuilder UseTenantResolution(
-        this IApplicationBuilder builder)
+    public static IApplicationBuilder UseTenantResolution(this IApplicationBuilder app)
     {
-        return builder.UseMiddleware<TenantResolutionMiddleware>();
+        return app.UseMiddleware<TenantResolutionMiddleware>();
     }
 }

@@ -4,17 +4,11 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using ESS.Infrastructure;
 using ESS.Application;
 using ESS.Application.Common.Interfaces;
-using ESS.API.Extensions;
+using ESS.Infrastructure.MultiTenancy.TenantResolution;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Kestrel to listen on all interfaces
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-    serverOptions.ListenAnyIP(80);
-});
-
-// Add Serilog
+// Configure Serilog
 builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
@@ -34,12 +28,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add application layer
-builder.Services.AddApplication();
-
-// Add infrastructure layer (includes tenant services)
-builder.Services.AddInfrastructure(builder.Configuration);
-
 // Add health checks
 builder.Services.AddHealthChecks()
     .AddNpgSql(
@@ -50,6 +38,12 @@ builder.Services.AddHealthChecks()
         builder.Configuration["Redis:Configuration"]!,
         name: "redis",
         tags: new[] { "cache", "redis" });
+
+// Add application layer
+builder.Services.AddApplication();
+
+// Add infrastructure layer
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
@@ -63,9 +57,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Basic health probe
-app.MapGet("/", () => "ESS API Running");
+// Add error handling
+app.UseExceptionHandler("/error");
 
+// Add tenant resolution before routing
+app.UseTenantResolution();
+
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Map controllers
+app.MapControllers();
+
+// Add health check endpoints
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     Predicate = _ => true,
@@ -98,20 +103,6 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions
         );
     }
 });
-
-// Add middleware
-app.UseExceptionHandler("/error");
-app.UseHttpsRedirection();
-app.UseRouting();
-
-// Add tenant resolution middleware
-app.UseTenantResolution();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-// Map controllers
-app.MapControllers();
 
 // Initialize database
 try
