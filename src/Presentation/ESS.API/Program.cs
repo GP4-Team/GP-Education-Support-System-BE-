@@ -5,6 +5,10 @@ using ESS.Infrastructure;
 using ESS.Application;
 using ESS.Application.Common.Interfaces;
 using ESS.Infrastructure.MultiTenancy.TenantResolution;
+using ESS.Infrastructure.MultiTenancy;
+using ESS.Infrastructure.Persistence;
+using Finbuckle.MultiTenant.Abstractions;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +48,24 @@ builder.Services.AddApplication();
 
 // Add infrastructure layer
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Configure Multi-tenancy
+TenantConfiguration.AddMultiTenancy(builder.Services, builder.Configuration);
+
+builder.Services.AddDbContext<TenantDbContext>((serviceProvider, options) =>
+{
+    var tenantInfo = serviceProvider.GetService<IMultiTenantContextAccessor<EssTenantInfo>>()?
+        .MultiTenantContext?.TenantInfo;
+
+    var connectionString = tenantInfo?.ConnectionString
+        ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+    options.UseNpgsql(connectionString,
+        npgsqlOptionsAction: sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(3);
+        });
+});
 
 var app = builder.Build();
 

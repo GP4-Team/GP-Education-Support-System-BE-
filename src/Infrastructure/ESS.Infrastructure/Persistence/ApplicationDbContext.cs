@@ -18,7 +18,7 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfiguration(new TenantConfiguration());
+        modelBuilder.ApplyConfiguration(new TenantEntityConfiguration());
         modelBuilder.ApplyConfiguration(new TenantDomainConfiguration());
         modelBuilder.ApplyConfiguration(new TenantSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new TenantAuditLogConfiguration());

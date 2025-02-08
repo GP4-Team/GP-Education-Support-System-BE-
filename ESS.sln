@@ -29,13 +29,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ESS.IntegrationTests", "tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ESS.FunctionalTests", "tests\ESS.FunctionalTests\ESS.FunctionalTests.csproj", "{5D00EBD9-04D6-48D6-87A4-1AAA314E847C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8B2325BC-8B69-4738-9C5F-2C8FCA9C49D7}"
+	ProjectSection(SolutionItems) = preProject
+		NuGet.config = NuGet.config
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{0D52A19A-3154-4A10-8BF5-9BB059252CB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -70,6 +72,9 @@ Global
 		{5D00EBD9-04D6-48D6-87A4-1AAA314E847C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5D00EBD9-04D6-48D6-87A4-1AAA314E847C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5D00EBD9-04D6-48D6-87A4-1AAA314E847C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{6DD22718-0A78-4A94-9D24-EFD82F9F0239} = {B9CC6ABB-79B2-409D-A6B2-DD25280E2656}
