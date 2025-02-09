@@ -1,20 +1,27 @@
 using ESS.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using ESS.Infrastructure.Persistence.Configurations;
+using ESS.Application.Common.Interfaces;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ESS.Infrastructure.Persistence;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
     }
 
-    public DbSet<Tenant> Tenants { get; set; }
-    public DbSet<TenantDomain> TenantDomains { get; set; }
-    public DbSet<TenantSettings> TenantSettings { get; set; }
-    public DbSet<TenantAuditLog> TenantAuditLogs { get; set; }
+    public virtual DbSet<Tenant> Tenants => Set<Tenant>();
+    public virtual DbSet<TenantDomain> TenantDomains => Set<TenantDomain>();
+    public virtual DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
+    public virtual DbSet<TenantAuditLog> TenantAuditLogs => Set<TenantAuditLog>();
+
+    public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+    {
+        return await Database.BeginTransactionAsync(cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
