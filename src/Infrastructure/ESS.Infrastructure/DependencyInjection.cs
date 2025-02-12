@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<ICacheService, RedisCacheService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantResolver, CachingTenantResolver>();
+        services.AddScoped<ITenantDatabaseService, TenantDatabaseService>();
 
         return services;
     }

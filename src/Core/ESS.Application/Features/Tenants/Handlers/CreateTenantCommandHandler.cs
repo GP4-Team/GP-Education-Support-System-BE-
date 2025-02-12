@@ -5,6 +5,7 @@ using ESS.Application.Common.Models;
 using ESS.Application.Common.Interfaces;
 using ESS.Application.Features.Tenants.Commands;
 using ESS.Domain.Entities;
+using ESS.Domain.Enums;
 
 namespace ESS.Application.Features.Tenants.Handlers;
 
@@ -13,15 +14,18 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, R
     private readonly IApplicationDbContext _context;
     private readonly ICacheService _cacheService;
     private readonly ILogger<CreateTenantCommandHandler> _logger;
+    private readonly ITenantDatabaseService _tenantDatabaseService;
 
     public CreateTenantCommandHandler(
         IApplicationDbContext context,
         ICacheService cacheService,
-        ILogger<CreateTenantCommandHandler> logger)
+        ILogger<CreateTenantCommandHandler> logger,
+        ITenantDatabaseService tenantDatabaseService)
     {
         _context = context;
         _cacheService = cacheService;
         _logger = logger;
+        _tenantDatabaseService = tenantDatabaseService;
     }
 
     public async Task<Result<Guid>> Handle(CreateTenantCommand request, CancellationToken cancellationToken)
@@ -47,7 +51,8 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, R
                 Identifier = request.Identifier,
                 ConnectionString = request.ConnectionString,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                DatabaseStatus = TenantDatabaseStatus.Pending // Set initial database status
             };
 
             var primaryDomain = new TenantDomain
@@ -81,7 +86,7 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, R
                     await _context.TenantSettings.AddRangeAsync(settings, cancellationToken);
                 }
 
-                // Add audit log
+                // Add audit log for tenant creation
                 var auditLog = new TenantAuditLog
                 {
                     Id = Guid.NewGuid(),
@@ -92,6 +97,28 @@ public class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, R
                 };
 
                 await _context.TenantAuditLogs.AddAsync(auditLog, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                // Create tenant database
+                var databaseCreated = await _tenantDatabaseService.CreateTenantDatabaseAsync(tenant);
+
+                if (!databaseCreated)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result.Failure<Guid>("Failed to create tenant database");
+                }
+
+                // Add audit log for database creation
+                var dbAuditLog = new TenantAuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenant.Id,
+                    Action = "DatabaseCreated",
+                    Details = $"Database created for tenant '{request.Identifier}'",
+                    Timestamp = DateTime.UtcNow
+                };
+
+                await _context.TenantAuditLogs.AddAsync(dbAuditLog, cancellationToken);
                 await _context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
