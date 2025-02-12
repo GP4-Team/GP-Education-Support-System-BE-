@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantResolver, CachingTenantResolver>();
         services.AddScoped<ITenantDatabaseService, TenantDatabaseService>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
     }

@@ -1,5 +1,6 @@
 ﻿using ESS.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -13,6 +14,7 @@ public interface IApplicationDbContext
     DbSet<TenantAuditLog> TenantAuditLogs { get; }
 
     DatabaseFacade Database { get; }
+    ChangeTracker ChangeTracker { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 }

@@ -1,6 +1,6 @@
-using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using AutoMapper;
 using ESS.Application.Common.Models;
 using ESS.Application.Common.Interfaces;
 using ESS.Application.Features.Tenants.Queries;

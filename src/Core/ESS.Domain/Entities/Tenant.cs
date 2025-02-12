@@ -1,27 +1,91 @@
-using ESS.Domain.Enums;
+using ESS.Domain.Common;
+using ESS.Domain.Events;
 
 namespace ESS.Domain.Entities;
 
-public class Tenant
+public class Tenant : BaseEntity
 {
-    public Tenant()
+    public Guid Id { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public string Identifier { get; private set; } = string.Empty;
+    public string? ConnectionString { get; private set; }
+    public bool IsActive { get; private set; }
+    public bool UseSharedDatabase { get; private set; }
+    public DateTime CreatedAt { get; private set; }
+    public DateTime? LastUpdatedAt { get; private set; }
+    public ICollection<TenantDomain> Domains { get; private set; } = new List<TenantDomain>();
+    public ICollection<TenantSettings> Settings { get; private set; } = new List<TenantSettings>();
+
+    private Tenant() { } // For EF Core
+
+    public static Tenant Create(string name, string identifier, bool useSharedDatabase)
     {
-        Domains = new HashSet<TenantDomain>();
-        DatabaseStatus = TenantDatabaseStatus.Pending;
+        var tenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Identifier = identifier,
+            UseSharedDatabase = useSharedDatabase,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        tenant.AddDomainEvent(new TenantCreatedEvent(tenant.Id, tenant.Name, tenant.Identifier, tenant.UseSharedDatabase));
+        return tenant;
     }
 
-    public required Guid Id { get; set; }
-    public required string Name { get; set; }
-    public required string Identifier { get; set; }
-    public required string ConnectionString { get; set; }
-    public required bool IsActive { get; set; }
-    public required DateTime CreatedAt { get; set; }
-    public DateTime? LastUpdatedAt { get; set; }
+    public void UpdateConnectionString(string connectionString)
+    {
+        ConnectionString = connectionString;
+        LastUpdatedAt = DateTime.UtcNow;
+        AddDomainEvent(new TenantConnectionStringUpdatedEvent(Id, connectionString));
+    }
 
-    // Database tracking properties
-    public TenantDatabaseStatus DatabaseStatus { get; set; }
-    public DateTime? DatabaseCreatedAt { get; set; }
-    public string? DatabaseError { get; set; }
+    public void AddDomain(string domain, bool isPrimary = false)
+    {
+        var tenantDomain = new TenantDomain
+        {
+            Id = Guid.NewGuid(),
+            TenantId = Id,
+            Domain = domain,
+            IsPrimary = isPrimary,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
 
-    public virtual ICollection<TenantDomain> Domains { get; set; }
+        Domains.Add(tenantDomain);
+        AddDomainEvent(new TenantDomainAddedEvent(Id, domain, isPrimary));
+    }
+
+    public void Deactivate()
+    {
+        if (!IsActive) return;
+
+        IsActive = false;
+        LastUpdatedAt = DateTime.UtcNow;
+        AddDomainEvent(new TenantDeactivatedEvent(Id, Name));
+    }
+
+    public void UpdateSettings(string key, string value)
+    {
+        var setting = Settings.FirstOrDefault(s => s.Key == key);
+        if (setting == null)
+        {
+            setting = new TenantSettings
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Id,
+                Key = key,
+                Value = value
+            };
+            Settings.Add(setting);
+        }
+        else
+        {
+            setting.Value = value;
+        }
+
+        LastUpdatedAt = DateTime.UtcNow;
+        AddDomainEvent(new TenantSettingsUpdatedEvent(Id, key, value));
+    }
 }
