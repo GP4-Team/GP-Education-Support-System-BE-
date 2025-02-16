@@ -3,20 +3,17 @@ using System;
 using ESS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ESS.Infrastructure.Persistence.Migrations
+namespace ESS.Infrastructure.Persistence.Migrations.Central
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250212181225_AddTenantDatabaseTracking")]
-    partial class AddTenantDatabaseTracking
+    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -67,6 +64,9 @@ namespace ESS.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("UseSharedDatabase")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -203,7 +203,7 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.TenantSettings", b =>
                 {
                     b.HasOne("ESS.Domain.Entities.Tenant", "Tenant")
-                        .WithMany()
+                        .WithMany("Settings")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -214,6 +214,8 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.Tenant", b =>
                 {
                     b.Navigation("Domains");
+
+                    b.Navigation("Settings");
                 });
 #pragma warning restore 612, 618
         }

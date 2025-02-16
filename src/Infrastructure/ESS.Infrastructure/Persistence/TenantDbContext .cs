@@ -14,6 +14,8 @@ public class TenantDbContext : DbContext
     private readonly IMultiTenantContext<EssTenantInfo>? _tenantContext;
     private readonly IConfiguration _configuration;
 
+    // Add DbSet properties for tenant-specific entities
+
     public TenantDbContext(
         DbContextOptions<TenantDbContext> options,
         IMultiTenantContextAccessor<EssTenantInfo> tenantContextAccessor,
@@ -29,7 +31,7 @@ public class TenantDbContext : DbContext
         if (!optionsBuilder.IsConfigured)
         {
             var connectionString = _tenantContext?.TenantInfo?.ConnectionString
-                ?? _configuration.GetConnectionString("DefaultConnection");
+                ?? _configuration.GetConnectionString("TenantTemplateConnection");
 
             optionsBuilder.UseNpgsql(connectionString,
                 npgsqlOptionsAction: sqlOptions =>
@@ -46,6 +48,8 @@ public class TenantDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema("public");
+
         // Apply tenant filter to all entity types that implement ITenantEntity
         foreach (var entityType in modelBuilder.Model.GetEntityTypes()
             .Where(e => typeof(ITenantEntity).IsAssignableFrom(e.ClrType)))
@@ -57,6 +61,9 @@ public class TenantDbContext : DbContext
 
             modelBuilder.Entity(entityType.ClrType).HasQueryFilter(filter);
         }
+
+        // Apply configurations
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(TenantDbContext).Assembly);
 
         base.OnModelCreating(modelBuilder);
     }

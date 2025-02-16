@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using ESS.Application.Common.Models;
 using ESS.Application.Common.Interfaces;
 using ESS.Application.Features.Tenants.Commands;
-using ESS.Domain.Entities;
 
 namespace ESS.Application.Features.Tenants.Handlers;
 
@@ -28,29 +27,17 @@ public class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCommand, R
     {
         try
         {
-            var tenant = await _context.Tenants
-                .FirstOrDefaultAsync(t => t.Id == request.Id, cancellationToken);
+            var tenant = await _context.Tenants.FirstOrDefaultAsync(t => t.Id == request.Id, cancellationToken);
 
             if (tenant == null)
             {
-                return Result.Failure<Unit>($"Tenant with ID '{request.Id}' not found");
+                return Result.Failure<Unit>($"Tenant with ID {request.Id} not found");
             }
 
-            tenant.Name = request.Name;
-            tenant.IsActive = request.IsActive;
-            tenant.LastUpdatedAt = DateTime.UtcNow;
+            // Update tenant details using the proper methods
+            tenant.UpdateDetails(request.Name);
+            tenant.UpdateStatus(request.IsActive);
 
-            // Add audit log
-            var auditLog = new TenantAuditLog
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenant.Id,
-                Action = "Updated",
-                Details = $"Tenant updated: Name='{request.Name}', IsActive={request.IsActive}",
-                Timestamp = DateTime.UtcNow
-            };
-
-            await _context.TenantAuditLogs.AddAsync(auditLog, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
             // Invalidate cache

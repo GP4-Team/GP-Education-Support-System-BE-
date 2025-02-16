@@ -9,6 +9,7 @@ using ESS.Infrastructure.MultiTenancy;
 using ESS.Infrastructure.Persistence;
 using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
+using ESS.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +52,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // Configure Multi-tenancy
 TenantConfiguration.AddMultiTenancy(builder.Services, builder.Configuration);
+builder.Services.AddScoped<DatabaseMigrationService>();
 
 builder.Services.AddDbContext<TenantDbContext>((serviceProvider, options) =>
 {
@@ -132,13 +134,49 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var initializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
+        var migrationService = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
+
+        // Initialize central database
         await initializer.InitializeAsync();
-        app.Logger.LogInformation("Database initialized successfully");
+        app.Logger.LogInformation("Central database initialized successfully");
+
+        // Update all databases
+        var migrationResult = await migrationService.UpdateAllDatabasesAsync();
+        if (migrationResult)
+        {
+            app.Logger.LogInformation("All databases migrated successfully");
+        }
+        else
+        {
+            app.Logger.LogWarning("Some databases failed to migrate. Check migration status for details.");
+        }
+
+        // Get and log migration status
+        var status = await migrationService.GetMigrationStatusAsync();
+        app.Logger.LogInformation("Migration Status - Central DB: {PendingCount} pending, {AppliedCount} applied",
+            status.CentralDatabase.PendingMigrations.Count,
+            status.CentralDatabase.AppliedMigrations.Count);
+
+        foreach (var tenant in status.TenantDatabases)
+        {
+            if (tenant.Error != null)
+            {
+                app.Logger.LogError("Tenant {TenantName} ({TenantId}) migration error: {Error}",
+                    tenant.TenantName, tenant.TenantId, tenant.Error);
+            }
+            else
+            {
+                app.Logger.LogInformation("Tenant {TenantName} ({TenantId}): {PendingCount} pending, {AppliedCount} applied",
+                    tenant.TenantName, tenant.TenantId,
+                    tenant.PendingMigrations.Count,
+                    tenant.AppliedMigrations.Count);
+            }
+        }
     }
 }
 catch (Exception ex)
 {
-    app.Logger.LogError(ex, "An error occurred while initializing the database");
+    app.Logger.LogError(ex, "An error occurred while initializing/migrating the databases");
 }
 
 app.Run();

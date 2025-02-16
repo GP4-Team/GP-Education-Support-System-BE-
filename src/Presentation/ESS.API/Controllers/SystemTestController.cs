@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ESS.Infrastructure.Persistence;
 using ESS.Domain.Entities;
+using ESS.Domain.Constants;
 
 namespace ESS.API.Controllers;
 
@@ -14,17 +15,20 @@ public class SystemTestController : ControllerBase
     private readonly ICacheService _cacheService;
     private readonly ILogger<SystemTestController> _logger;
     private readonly IConfiguration _configuration;
+    private readonly ITenantDatabaseService _tenantDatabaseService;
 
     public SystemTestController(
         ApplicationDbContext dbContext,
         ICacheService cacheService,
         ILogger<SystemTestController> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ITenantDatabaseService tenantDatabaseService)
     {
         _dbContext = dbContext;
         _cacheService = cacheService;
         _logger = logger;
         _configuration = configuration;
+        _tenantDatabaseService = tenantDatabaseService;
     }
 
     [HttpGet("database/test")]
@@ -72,7 +76,6 @@ public class SystemTestController : ControllerBase
         try
         {
             // Generate unique tenant details
-            var tenantId = Guid.NewGuid();
             var identifier = $"test-{DateTime.UtcNow.Ticks}";
 
             // Check for existing tenant
@@ -85,37 +88,42 @@ public class SystemTestController : ControllerBase
             var connectionString = _configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Default connection string is not configured");
 
-            var tenant = new Tenant
-            {
-                Id = tenantId,
-                Name = "Test Tenant",
-                Identifier = identifier,
-                ConnectionString = connectionString,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
+            // Create tenant using the factory method
+            var tenant = Tenant.Create(
+                name: "Test Tenant",
+                identifier: identifier,
+                useSharedDatabase: false
+            );
 
-            var domain = new TenantDomain
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenant.Id,
-                Domain = $"{identifier}.example.com",
-                IsPrimary = true,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
+            // Update connection string
+            tenant.UpdateConnectionString(connectionString);
+
+            // Add domain using the domain method
+            tenant.AddDomain($"{identifier}.example.com", isPrimary: true);
 
             await using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
+                // Add tenant to context
                 _dbContext.Tenants.Add(tenant);
-                _dbContext.TenantDomains.Add(domain);
                 await _dbContext.SaveChangesAsync();
 
+                // Create tenant database
+                if (!await _tenantDatabaseService.CreateTenantDatabaseAsync(tenant))
+                {
+                    await transaction.RollbackAsync();
+                    return Problem(
+                        title: "Failed to Create Tenant Database",
+                        detail: "Database creation failed",
+                        statusCode: StatusCodes.Status500InternalServerError
+                    );
+                }
+
                 // Cache the tenant information
+                var primaryDomain = tenant.Domains.First(d => d.IsPrimary);
                 await _cacheService.SetAsync(
-                    $"tenant_domain_{domain.Domain}",
-                    tenant,  // Store the whole tenant object instead of just the ID
+                    CacheKeys.TenantByDomain(primaryDomain.Domain),
+                    tenant,
                     TimeSpan.FromHours(1));
 
                 await transaction.CommitAsync();
@@ -123,9 +131,9 @@ public class SystemTestController : ControllerBase
                 _logger.LogInformation(
                     "Created test tenant. ID: {TenantId}, Domain: {Domain}",
                     tenant.Id,
-                    domain.Domain);
+                    primaryDomain.Domain);
 
-                return Ok(new { tenant, domain });
+                return Ok(new { tenant, domain = primaryDomain });
             }
             catch (Exception ex)
             {

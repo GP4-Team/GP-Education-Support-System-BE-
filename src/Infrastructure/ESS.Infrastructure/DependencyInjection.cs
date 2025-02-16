@@ -31,6 +31,12 @@ public static class DependencyInjection
             options.Configuration = configuration["Redis:Configuration"];
             options.InstanceName = "ESS_";
         });
+        services.AddDbContext<TenantDbContext>((sp, options) =>
+        {
+            var configuration = sp.GetRequiredService<IConfiguration>();
+            var connectionString = configuration.GetConnectionString("TenantTemplateConnection");
+            options.UseNpgsql(connectionString);
+        });
 
         // Register Services
         services.AddScoped<IDbInitializer, DbInitializer>();
@@ -38,6 +44,9 @@ public static class DependencyInjection
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantResolver, CachingTenantResolver>();
         services.AddScoped<ITenantDatabaseService, TenantDatabaseService>();
+        services.AddScoped<ITenantMigrationService, TenantMigrationService>();
+        services.AddScoped<TenantMigrationTracker>();
+        services.AddScoped<DatabaseMigrationService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;

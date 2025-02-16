@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ESS.Infrastructure.Persistence.Migrations
+namespace ESS.Infrastructure.Persistence.Migrations.Central
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250130082212_InitialDatabaseSchema")]
-    partial class InitialDatabaseSchema
+    [Migration("20250215080813_InitialCentral")]
+    partial class InitialCentral
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -41,6 +41,15 @@ namespace ESS.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<DateTime?>("DatabaseCreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DatabaseError")
+                        .HasColumnType("text");
+
+                    b.Property<int>("DatabaseStatus")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Identifier")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -58,6 +67,9 @@ namespace ESS.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("UseSharedDatabase")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -194,7 +206,7 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.TenantSettings", b =>
                 {
                     b.HasOne("ESS.Domain.Entities.Tenant", "Tenant")
-                        .WithMany()
+                        .WithMany("Settings")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -205,6 +217,8 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.Tenant", b =>
                 {
                     b.Navigation("Domains");
+
+                    b.Navigation("Settings");
                 });
 #pragma warning restore 612, 618
         }
