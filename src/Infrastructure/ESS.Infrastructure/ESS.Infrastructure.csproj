@@ -30,6 +30,9 @@
 		<PackageReference Include="StackExchange.Redis" Version="2.8.24" />
 		<PackageReference Include="System.Text.Encodings.Web" Version="9.0.1" />
 	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Persistence\Migrations\" />
+	</ItemGroup>
 
 	<PropertyGroup>
 		<TargetFramework>net9.0</TargetFramework>

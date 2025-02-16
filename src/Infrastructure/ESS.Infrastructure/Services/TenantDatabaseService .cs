@@ -34,8 +34,7 @@ public class TenantDatabaseService : ITenantDatabaseService
         try
         {
             // Update status to Creating
-            tenant.DatabaseStatus = TenantDatabaseStatus.Creating;
-            tenant.DatabaseError = null;
+            tenant.SetDatabaseStatus(TenantDatabaseStatus.Creating);
             await _context.SaveChangesAsync(CancellationToken.None);
 
             // Extract database name from connection string
@@ -46,8 +45,7 @@ public class TenantDatabaseService : ITenantDatabaseService
             if (await CheckDatabaseExistsAsync(databaseName))
             {
                 _logger.LogWarning("Database {DatabaseName} already exists for tenant {TenantId}", databaseName, tenant.Id);
-                tenant.DatabaseStatus = TenantDatabaseStatus.Active;
-                tenant.DatabaseCreatedAt = DateTime.UtcNow;
+                tenant.SetDatabaseStatus(TenantDatabaseStatus.Active);
                 await _context.SaveChangesAsync(CancellationToken.None);
                 return true;
             }
@@ -68,8 +66,7 @@ public class TenantDatabaseService : ITenantDatabaseService
             // Validate the new database connection
             if (await ValidateDatabaseConnectionAsync(tenant.ConnectionString))
             {
-                tenant.DatabaseStatus = TenantDatabaseStatus.Active;
-                tenant.DatabaseCreatedAt = DateTime.UtcNow;
+                tenant.SetDatabaseStatus(TenantDatabaseStatus.Active);
                 await _context.SaveChangesAsync(CancellationToken.None);
                 return true;
             }
@@ -79,8 +76,7 @@ public class TenantDatabaseService : ITenantDatabaseService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create database for tenant {TenantId}", tenant.Id);
-            tenant.DatabaseStatus = TenantDatabaseStatus.Failed;
-            tenant.DatabaseError = ex.Message;
+            tenant.SetDatabaseStatus(TenantDatabaseStatus.Failed, ex.Message);
             await _context.SaveChangesAsync(CancellationToken.None);
             return false;
         }

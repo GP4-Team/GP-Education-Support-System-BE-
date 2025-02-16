@@ -9,17 +9,18 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ESS.Infrastructure.Persistence.Migrations
+namespace ESS.Infrastructure.Persistence.Migrations.Tenant
 {
-    [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250212181225_AddTenantDatabaseTracking")]
-    partial class AddTenantDatabaseTracking
+    [DbContext(typeof(TenantDbContext))]
+    [Migration("20250216173921_InitialTenant")]
+    partial class InitialTenant
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("public")
                 .HasAnnotation("ProductVersion", "9.0.1")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -68,13 +69,16 @@ namespace ESS.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<bool>("UseSharedDatabase")
+                        .HasColumnType("boolean");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Identifier")
                         .IsUnique()
                         .HasDatabaseName("IX_Tenants_Identifier");
 
-                    b.ToTable("Tenants");
+                    b.ToTable("Tenant", "public");
                 });
 
             modelBuilder.Entity("ESS.Domain.Entities.TenantAuditLog", b =>
@@ -105,7 +109,7 @@ namespace ESS.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Timestamp")
                         .HasDatabaseName("IX_TenantAuditLogs_TenantId_Timestamp");
 
-                    b.ToTable("TenantAuditLogs");
+                    b.ToTable("TenantAuditLog", "public");
                 });
 
             modelBuilder.Entity("ESS.Domain.Entities.TenantDomain", b =>
@@ -148,7 +152,7 @@ namespace ESS.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_TenantDomains_TenantId_IsPrimary")
                         .HasFilter("\"IsPrimary\" = true");
 
-                    b.ToTable("TenantDomains");
+                    b.ToTable("TenantDomain", "public");
                 });
 
             modelBuilder.Entity("ESS.Domain.Entities.TenantSettings", b =>
@@ -175,7 +179,58 @@ namespace ESS.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_TenantSettings_TenantId_Key");
 
-                    b.ToTable("TenantSettings");
+                    b.ToTable("TenantSettings", "public");
+                });
+
+            modelBuilder.Entity("ESS.Domain.Entities.Users.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Username")
+                        .IsUnique();
+
+                    b.ToTable("Users", "public");
                 });
 
             modelBuilder.Entity("ESS.Domain.Entities.TenantAuditLog", b =>
@@ -203,7 +258,7 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.TenantSettings", b =>
                 {
                     b.HasOne("ESS.Domain.Entities.Tenant", "Tenant")
-                        .WithMany()
+                        .WithMany("Settings")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -214,6 +269,8 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.Tenant", b =>
                 {
                     b.Navigation("Domains");
+
+                    b.Navigation("Settings");
                 });
 #pragma warning restore 612, 618
         }

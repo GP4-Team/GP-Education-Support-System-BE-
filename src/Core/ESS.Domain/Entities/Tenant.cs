@@ -1,5 +1,6 @@
 using ESS.Domain.Common;
 using ESS.Domain.Events;
+using ESS.Domain.Enums;
 
 namespace ESS.Domain.Entities;
 
@@ -13,6 +14,12 @@ public class Tenant : BaseEntity
     public bool UseSharedDatabase { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? LastUpdatedAt { get; private set; }
+
+    // Database tracking properties
+    public TenantDatabaseStatus DatabaseStatus { get; private set; }
+    public string? DatabaseError { get; private set; }
+    public DateTime? DatabaseCreatedAt { get; private set; }
+
     public ICollection<TenantDomain> Domains { get; private set; } = new List<TenantDomain>();
     public ICollection<TenantSettings> Settings { get; private set; } = new List<TenantSettings>();
 
@@ -27,7 +34,8 @@ public class Tenant : BaseEntity
             Identifier = identifier,
             UseSharedDatabase = useSharedDatabase,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            DatabaseStatus = TenantDatabaseStatus.Pending
         };
 
         tenant.AddDomainEvent(new TenantCreatedEvent(tenant.Id, tenant.Name, tenant.Identifier, tenant.UseSharedDatabase));
@@ -87,5 +95,36 @@ public class Tenant : BaseEntity
 
         LastUpdatedAt = DateTime.UtcNow;
         AddDomainEvent(new TenantSettingsUpdatedEvent(Id, key, value));
+    }
+
+    // Methods to update database status
+    public void SetDatabaseStatus(TenantDatabaseStatus status, string? error = null)
+    {
+        DatabaseStatus = status;
+        DatabaseError = error;
+        LastUpdatedAt = DateTime.UtcNow;
+
+        if (status == TenantDatabaseStatus.Active && DatabaseCreatedAt == null)
+        {
+            DatabaseCreatedAt = DateTime.UtcNow;
+        }
+    }
+    public void UpdateDetails(string name)
+    {
+        Name = name;
+        LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    public void UpdateStatus(bool isActive)
+    {
+        if (IsActive == isActive) return;
+
+        IsActive = isActive;
+        LastUpdatedAt = DateTime.UtcNow;
+
+        if (!isActive)
+        {
+            AddDomainEvent(new TenantDeactivatedEvent(Id, Name));
+        }
     }
 }

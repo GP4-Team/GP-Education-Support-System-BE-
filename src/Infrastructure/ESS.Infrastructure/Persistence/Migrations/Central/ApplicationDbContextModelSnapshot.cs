@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ESS.Infrastructure.Persistence.Migrations
+namespace ESS.Infrastructure.Persistence.Migrations.Central
 {
     [DbContext(typeof(ApplicationDbContext))]
     partial class ApplicationDbContextModelSnapshot : ModelSnapshot
@@ -64,6 +64,9 @@ namespace ESS.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("UseSharedDatabase")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 
@@ -200,7 +203,7 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.TenantSettings", b =>
                 {
                     b.HasOne("ESS.Domain.Entities.Tenant", "Tenant")
-                        .WithMany()
+                        .WithMany("Settings")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -211,6 +214,8 @@ namespace ESS.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ESS.Domain.Entities.Tenant", b =>
                 {
                     b.Navigation("Domains");
+
+                    b.Navigation("Settings");
                 });
 #pragma warning restore 612, 618
         }

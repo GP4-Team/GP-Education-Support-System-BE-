@@ -1,5 +1,6 @@
 using ESS.Application.Common.Interfaces;
 using ESS.Infrastructure.Caching;
+using ESS.Infrastructure.DomainEvents;
 using ESS.Infrastructure.MultiTenancy.TenantResolution;
 using ESS.Infrastructure.Persistence;
 using ESS.Infrastructure.Services;
@@ -32,12 +33,25 @@ public static class DependencyInjection
             options.InstanceName = "ESS_";
         });
 
+        services.AddDbContext<TenantDbContext>((sp, options) =>
+        {
+            var configuration = sp.GetRequiredService<IConfiguration>();
+            var connectionString = configuration.GetConnectionString("TenantTemplateConnection");
+            options.UseNpgsql(connectionString);
+        });
+
+        // Register Domain Event Dispatcher
+        services.AddScoped<DomainEventDispatcher>();
+
         // Register Services
         services.AddScoped<IDbInitializer, DbInitializer>();
         services.AddScoped<ICacheService, RedisCacheService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantResolver, CachingTenantResolver>();
         services.AddScoped<ITenantDatabaseService, TenantDatabaseService>();
+        services.AddScoped<ITenantMigrationService, TenantMigrationService>();
+        services.AddScoped<TenantMigrationTracker>();
+        services.AddScoped<DatabaseMigrationService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
