@@ -10,6 +10,7 @@ using ESS.Infrastructure.Persistence;
 using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using ESS.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -127,7 +128,6 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions
         );
     }
 });
-
 // Initialize database
 try
 {
@@ -135,42 +135,74 @@ try
     {
         var initializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
         var migrationService = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-        // Initialize central database
-        await initializer.InitializeAsync();
-        app.Logger.LogInformation("Central database initialized successfully");
+        // Initialize central database with retries
+        try
+        {
+            await initializer.InitializeAsync();
+            logger.LogInformation("Central database initialized successfully");
+
+            // Add a delay to ensure the database is fully ready
+            await Task.Delay(2000);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to initialize central database. Application will continue, but functionality may be limited");
+        }
 
         // Update all databases
-        var migrationResult = await migrationService.UpdateAllDatabasesAsync();
-        if (migrationResult)
+        try
         {
-            app.Logger.LogInformation("All databases migrated successfully");
-        }
-        else
-        {
-            app.Logger.LogWarning("Some databases failed to migrate. Check migration status for details.");
-        }
+            // Add a delay before attempting migrations
+            logger.LogInformation("Waiting for database to be fully initialized before starting migrations...");
+            await Task.Delay(5000);
 
-        // Get and log migration status
-        var status = await migrationService.GetMigrationStatusAsync();
-        app.Logger.LogInformation("Migration Status - Central DB: {PendingCount} pending, {AppliedCount} applied",
-            status.CentralDatabase.PendingMigrations.Count,
-            status.CentralDatabase.AppliedMigrations.Count);
-
-        foreach (var tenant in status.TenantDatabases)
-        {
-            if (tenant.Error != null)
+            var migrationResult = await migrationService.UpdateAllDatabasesAsync();
+            if (migrationResult)
             {
-                app.Logger.LogError("Tenant {TenantName} ({TenantId}) migration error: {Error}",
-                    tenant.TenantName, tenant.TenantId, tenant.Error);
+                logger.LogInformation("All databases migrated successfully");
             }
             else
             {
-                app.Logger.LogInformation("Tenant {TenantName} ({TenantId}): {PendingCount} pending, {AppliedCount} applied",
-                    tenant.TenantName, tenant.TenantId,
-                    tenant.PendingMigrations.Count,
-                    tenant.AppliedMigrations.Count);
+                logger.LogWarning("Some databases failed to migrate. Check migration status for details.");
             }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to migrate tenant databases. Application will continue, but functionality may be limited");
+        }
+
+        // Get and log migration status
+        try
+        {
+            // Add a delay before checking migration status
+            await Task.Delay(2000);
+
+            var status = await migrationService.GetMigrationStatusAsync();
+            logger.LogInformation("Migration Status - Central DB: {PendingCount} pending, {AppliedCount} applied",
+                status.CentralDatabase.PendingMigrations.Count,
+                status.CentralDatabase.AppliedMigrations.Count);
+
+            foreach (var tenant in status.TenantDatabases)
+            {
+                if (tenant.Error != null)
+                {
+                    logger.LogError("Tenant {TenantName} ({TenantId}) migration error: {Error}",
+                        tenant.TenantName, tenant.TenantId, tenant.Error);
+                }
+                else
+                {
+                    logger.LogInformation("Tenant {TenantName} ({TenantId}): {PendingCount} pending, {AppliedCount} applied",
+                        tenant.TenantName, tenant.TenantId,
+                        tenant.PendingMigrations.Count,
+                        tenant.AppliedMigrations.Count);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get migration status");
         }
     }
 }
@@ -178,5 +210,4 @@ catch (Exception ex)
 {
     app.Logger.LogError(ex, "An error occurred while initializing/migrating the databases");
 }
-
 app.Run();
