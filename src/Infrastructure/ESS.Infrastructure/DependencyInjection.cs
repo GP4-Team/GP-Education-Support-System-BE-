@@ -32,6 +32,12 @@ public static class DependencyInjection
             options.Configuration = configuration["Redis:Configuration"];
             options.InstanceName = "ESS_";
         });
+        services.AddDbContext<TenantDbContext>((sp, options) =>
+        {
+            var configuration = sp.GetRequiredService<IConfiguration>();
+            var connectionString = configuration.GetConnectionString("TenantTemplateConnection");
+            options.UseNpgsql(connectionString);
+        });
 
         services.AddDbContext<TenantDbContext>((sp, options) =>
         {

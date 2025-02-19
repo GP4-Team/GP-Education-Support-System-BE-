@@ -72,10 +72,6 @@ public class TenantDbContext : DbContext
             modelBuilder.Entity(entityType.ClrType).HasQueryFilter(filter);
         }
 
-        // Apply configurations
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(TenantDbContext).Assembly);
-        modelBuilder.ApplyConfiguration(new UserConfiguration());
-
         base.OnModelCreating(modelBuilder);
     }
 }
