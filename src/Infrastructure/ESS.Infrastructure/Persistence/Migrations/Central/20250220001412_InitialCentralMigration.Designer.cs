@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ESS.Infrastructure.Persistence.Migrations.Central
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250215080813_InitialCentral")]
-    partial class InitialCentral
+    [Migration("20250220001412_InitialCentralMigration")]
+    partial class InitialCentralMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

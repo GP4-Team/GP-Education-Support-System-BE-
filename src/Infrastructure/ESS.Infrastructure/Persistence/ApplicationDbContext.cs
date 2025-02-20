@@ -29,8 +29,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         modelBuilder.ApplyConfiguration(new TenantDomainConfiguration());
         modelBuilder.ApplyConfiguration(new TenantSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new TenantAuditLogConfiguration());
-
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

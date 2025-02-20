@@ -3,20 +3,16 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace ESS.Infrastructure.Persistence.Migrations.Tenant
+namespace ESS.Infrastructure.Persistence.Migrations.Central
 {
     /// <inheritdoc />
-    public partial class InitialTenant : Migration
+    public partial class InitialCentralMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.EnsureSchema(
-                name: "public");
-
             migrationBuilder.CreateTable(
-                name: "Tenant",
-                schema: "public",
+                name: "Tenants",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -33,32 +29,11 @@ namespace ESS.Infrastructure.Persistence.Migrations.Tenant
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Tenant", x => x.Id);
+                    table.PrimaryKey("PK_Tenants", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "Users",
-                schema: "public",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Username = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    FirstName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    LastName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    LastModifiedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    TenantId = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Users", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "TenantAuditLog",
-                schema: "public",
+                name: "TenantAuditLogs",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -69,19 +44,17 @@ namespace ESS.Infrastructure.Persistence.Migrations.Tenant
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_TenantAuditLog", x => x.Id);
+                    table.PrimaryKey("PK_TenantAuditLogs", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_TenantAuditLog_Tenant_TenantId",
+                        name: "FK_TenantAuditLogs_Tenants_TenantId",
                         column: x => x.TenantId,
-                        principalSchema: "public",
-                        principalTable: "Tenant",
+                        principalTable: "Tenants",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "TenantDomain",
-                schema: "public",
+                name: "TenantDomains",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -93,19 +66,17 @@ namespace ESS.Infrastructure.Persistence.Migrations.Tenant
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_TenantDomain", x => x.Id);
+                    table.PrimaryKey("PK_TenantDomains", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_TenantDomain_Tenant_TenantId",
+                        name: "FK_TenantDomains_Tenants_TenantId",
                         column: x => x.TenantId,
-                        principalSchema: "public",
-                        principalTable: "Tenant",
+                        principalTable: "Tenants",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
                 name: "TenantSettings",
-                schema: "public",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -117,61 +88,41 @@ namespace ESS.Infrastructure.Persistence.Migrations.Tenant
                 {
                     table.PrimaryKey("PK_TenantSettings", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_TenantSettings_Tenant_TenantId",
+                        name: "FK_TenantSettings_Tenants_TenantId",
                         column: x => x.TenantId,
-                        principalSchema: "public",
-                        principalTable: "Tenant",
+                        principalTable: "Tenants",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Tenants_Identifier",
-                schema: "public",
-                table: "Tenant",
-                column: "Identifier",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_TenantAuditLogs_TenantId_Timestamp",
-                schema: "public",
-                table: "TenantAuditLog",
+                table: "TenantAuditLogs",
                 columns: new[] { "TenantId", "Timestamp" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_TenantDomains_Domain",
-                schema: "public",
-                table: "TenantDomain",
+                table: "TenantDomains",
                 column: "Domain",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_TenantDomains_TenantId_IsPrimary",
-                schema: "public",
-                table: "TenantDomain",
+                table: "TenantDomains",
                 columns: new[] { "TenantId", "IsPrimary" },
                 unique: true,
                 filter: "\"IsPrimary\" = true");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Tenants_Identifier",
+                table: "Tenants",
+                column: "Identifier",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TenantSettings_TenantId_Key",
-                schema: "public",
                 table: "TenantSettings",
                 columns: new[] { "TenantId", "Key" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Users_TenantId_Email",
-                schema: "public",
-                table: "Users",
-                columns: new[] { "TenantId", "Email" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Users_TenantId_Username",
-                schema: "public",
-                table: "Users",
-                columns: new[] { "TenantId", "Username" },
                 unique: true);
         }
 
@@ -179,24 +130,16 @@ namespace ESS.Infrastructure.Persistence.Migrations.Tenant
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "TenantAuditLog",
-                schema: "public");
+                name: "TenantAuditLogs");
 
             migrationBuilder.DropTable(
-                name: "TenantDomain",
-                schema: "public");
+                name: "TenantDomains");
 
             migrationBuilder.DropTable(
-                name: "TenantSettings",
-                schema: "public");
+                name: "TenantSettings");
 
             migrationBuilder.DropTable(
-                name: "Users",
-                schema: "public");
-
-            migrationBuilder.DropTable(
-                name: "Tenant",
-                schema: "public");
+                name: "Tenants");
         }
     }
 }
