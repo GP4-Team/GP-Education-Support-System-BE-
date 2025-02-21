@@ -10,6 +10,8 @@ using ESS.Infrastructure.Persistence;
 using Finbuckle.MultiTenant.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using ESS.Infrastructure.Services;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,9 +20,33 @@ builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ESS.API.Filters.ValidationActionFilter>();
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.WriteIndented = true;
+});
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ESS API",
+        Version = "v1",
+        Description = "Education Support System API"
+    });
+
+    // Add XML comments for API documentation
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+});
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -82,7 +108,27 @@ if (app.Environment.IsDevelopment())
 }
 
 // Add error handling
-app.UseExceptionHandler("/error");
+app.UseExceptionHandler(appError =>
+{
+    appError.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+
+        var contextFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        if (contextFeature != null)
+        {
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(contextFeature.Error, "Unhandled exception");
+
+            await context.Response.WriteAsJsonAsync(new
+            {
+                StatusCode = context.Response.StatusCode,
+                Message = "Internal Server Error. Please try again later."
+            });
+        }
+    });
+});
 
 // Add tenant resolution before routing
 app.UseTenantResolution();
@@ -127,7 +173,6 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions
         );
     }
 });
-
 // Initialize database
 try
 {
@@ -135,42 +180,74 @@ try
     {
         var initializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
         var migrationService = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-        // Initialize central database
-        await initializer.InitializeAsync();
-        app.Logger.LogInformation("Central database initialized successfully");
+        // Initialize central database with retries
+        try
+        {
+            await initializer.InitializeAsync();
+            logger.LogInformation("Central database initialized successfully");
+
+            // Add a delay to ensure the database is fully ready
+            await Task.Delay(2000);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to initialize central database. Application will continue, but functionality may be limited");
+        }
 
         // Update all databases
-        var migrationResult = await migrationService.UpdateAllDatabasesAsync();
-        if (migrationResult)
+        try
         {
-            app.Logger.LogInformation("All databases migrated successfully");
-        }
-        else
-        {
-            app.Logger.LogWarning("Some databases failed to migrate. Check migration status for details.");
-        }
+            // Add a delay before attempting migrations
+            logger.LogInformation("Waiting for database to be fully initialized before starting migrations...");
+            await Task.Delay(5000);
 
-        // Get and log migration status
-        var status = await migrationService.GetMigrationStatusAsync();
-        app.Logger.LogInformation("Migration Status - Central DB: {PendingCount} pending, {AppliedCount} applied",
-            status.CentralDatabase.PendingMigrations.Count,
-            status.CentralDatabase.AppliedMigrations.Count);
-
-        foreach (var tenant in status.TenantDatabases)
-        {
-            if (tenant.Error != null)
+            var migrationResult = await migrationService.UpdateAllDatabasesAsync();
+            if (migrationResult)
             {
-                app.Logger.LogError("Tenant {TenantName} ({TenantId}) migration error: {Error}",
-                    tenant.TenantName, tenant.TenantId, tenant.Error);
+                logger.LogInformation("All databases migrated successfully");
             }
             else
             {
-                app.Logger.LogInformation("Tenant {TenantName} ({TenantId}): {PendingCount} pending, {AppliedCount} applied",
-                    tenant.TenantName, tenant.TenantId,
-                    tenant.PendingMigrations.Count,
-                    tenant.AppliedMigrations.Count);
+                logger.LogWarning("Some databases failed to migrate. Check migration status for details.");
             }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to migrate tenant databases. Application will continue, but functionality may be limited");
+        }
+
+        // Get and log migration status
+        try
+        {
+            // Add a delay before checking migration status
+            await Task.Delay(2000);
+
+            var status = await migrationService.GetMigrationStatusAsync();
+            logger.LogInformation("Migration Status - Central DB: {PendingCount} pending, {AppliedCount} applied",
+                status.CentralDatabase.PendingMigrations.Count,
+                status.CentralDatabase.AppliedMigrations.Count);
+
+            foreach (var tenant in status.TenantDatabases)
+            {
+                if (tenant.Error != null)
+                {
+                    logger.LogError("Tenant {TenantName} ({TenantId}) migration error: {Error}",
+                        tenant.TenantName, tenant.TenantId, tenant.Error);
+                }
+                else
+                {
+                    logger.LogInformation("Tenant {TenantName} ({TenantId}): {PendingCount} pending, {AppliedCount} applied",
+                        tenant.TenantName, tenant.TenantId,
+                        tenant.PendingMigrations.Count,
+                        tenant.AppliedMigrations.Count);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get migration status");
         }
     }
 }
@@ -178,5 +255,4 @@ catch (Exception ex)
 {
     app.Logger.LogError(ex, "An error occurred while initializing/migrating the databases");
 }
-
 app.Run();

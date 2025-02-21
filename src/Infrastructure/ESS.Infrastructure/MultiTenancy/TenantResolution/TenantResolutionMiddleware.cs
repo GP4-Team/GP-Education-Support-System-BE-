@@ -19,7 +19,8 @@ public class TenantResolutionMiddleware
         "/health",
         "/healthz",
         "/swagger",
-        "/.well-known"
+        "/.well-known",
+        "/api/tenants" // Exclude the tenant creation endpoint
     };
 
     public TenantResolutionMiddleware(
@@ -35,7 +36,11 @@ public class TenantResolutionMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var path = context.Request.Path.Value?.ToLowerInvariant();
-        if (path != null && ExcludedPaths.Any(excluded => path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)))
+
+        // Skip tenant resolution for excluded paths
+        if (path != null &&
+            (ExcludedPaths.Any(excluded => path.StartsWith(excluded, StringComparison.OrdinalIgnoreCase)) ||
+             IsTenantsApiManagementEndpoint(path, context.Request.Method)))
         {
             await _next(context);
             return;
@@ -71,6 +76,23 @@ public class TenantResolutionMiddleware
             _logger.LogError(ex, "Error processing tenant resolution");
             throw;
         }
+    }
+
+    private bool IsTenantsApiManagementEndpoint(string path, string method)
+    {
+        // Exact match for POST /api/tenants (create tenant)
+        if (path == "/api/tenants" && method == "POST")
+            return true;
+
+        // Match for GET /api/tenants to list all tenants
+        if (path == "/api/tenants" && method == "GET")
+            return true;
+
+        // Match for tenant migrations endpoints
+        if (path.StartsWith("/api/tenant-migrations", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
     }
 
     private async Task<Tenant?> ResolveTenantFromHeadersAsync(HttpContext context, ITenantService tenantService)

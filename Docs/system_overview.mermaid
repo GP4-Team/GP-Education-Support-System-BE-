@@ -1,0 +1,67 @@
+graph TB
+    subgraph Docker["Docker Environment"]
+        subgraph Frontend["Frontend Layer"]
+            REACT[React Dashboard App]
+        end
+
+        subgraph Backend[".NET Core 9 Backend Layer"]
+            API[REST API]
+            DDD[Domain Driven Design]
+            MT[Multi-tenancy Handler]
+        end
+
+        subgraph Storage["Storage Layer"]
+            MINIO[MinIO Object Storage]
+            REDIS[Redis Cache]
+            subgraph Databases
+                PG_CENTRAL[PostgreSQL Central DB]
+                PG_TENANTS[PostgreSQL Tenant DBs]
+            end
+        end
+
+        subgraph DataPipeline["Data Pipeline Layer"]
+            DBZ[Debezium CDC]
+            KAFKA[Apache Kafka]
+            PYSPARK[PySpark Processing]
+            NEO4J[Neo4j Graph DB]
+        end
+
+        subgraph ML["Machine Learning Layer"]
+            TF[TensorFlow Training]
+            FASTAPI[FastAPI Prediction Service]
+        end
+    end
+
+    %% Connections
+    REACT --> API
+    API --> DDD
+    DDD --> MT
+    MT --> PG_CENTRAL
+    MT --> PG_TENANTS
+    MT --> MINIO
+    MT --> REDIS
+
+    PG_CENTRAL --> DBZ
+    PG_TENANTS --> DBZ
+    DBZ --> KAFKA
+    KAFKA --> PYSPARK
+    PYSPARK --> NEO4J
+    NEO4J --> TF
+    TF --> FASTAPI
+    FASTAPI --> API
+
+    %% Styling
+    classDef docker fill:#2496ED,stroke:#2496ED,stroke-width:4px,color:#fff
+    classDef frontend fill:#61DAFB,stroke:#61DAFB,stroke-width:2px,color:#000
+    classDef primary fill:#2374ab,stroke:#2374ab,stroke-width:2px,color:#fff
+    classDef secondary fill:#48a9a6,stroke:#48a9a6,stroke-width:2px,color:#fff
+    classDef storage fill:#4b4e6d,stroke:#4b4e6d,stroke-width:2px,color:#fff
+    classDef pipeline fill:#96a13a,stroke:#96a13a,stroke-width:2px,color:#fff
+    classDef ml fill:#d64933,stroke:#d64933,stroke-width:2px,color:#fff
+
+    class Docker docker
+    class REACT frontend
+    class API,DDD,MT primary
+    class MINIO,REDIS,PG_CENTRAL,PG_TENANTS storage
+    class DBZ,KAFKA,PYSPARK,NEO4J pipeline
+    class TF,FASTAPI ml

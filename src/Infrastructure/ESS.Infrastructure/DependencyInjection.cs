@@ -1,5 +1,6 @@
 using ESS.Application.Common.Interfaces;
 using ESS.Infrastructure.Caching;
+using ESS.Infrastructure.DomainEvents;
 using ESS.Infrastructure.MultiTenancy.TenantResolution;
 using ESS.Infrastructure.Persistence;
 using ESS.Infrastructure.Services;
@@ -37,6 +38,16 @@ public static class DependencyInjection
             var connectionString = configuration.GetConnectionString("TenantTemplateConnection");
             options.UseNpgsql(connectionString);
         });
+
+        services.AddDbContext<TenantDbContext>((sp, options) =>
+        {
+            var configuration = sp.GetRequiredService<IConfiguration>();
+            var connectionString = configuration.GetConnectionString("TenantTemplateConnection");
+            options.UseNpgsql(connectionString);
+        });
+
+        // Register Domain Event Dispatcher
+        services.AddScoped<DomainEventDispatcher>();
 
         // Register Services
         services.AddScoped<IDbInitializer, DbInitializer>();

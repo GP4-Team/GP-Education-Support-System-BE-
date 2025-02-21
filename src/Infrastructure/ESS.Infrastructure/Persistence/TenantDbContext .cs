@@ -6,6 +6,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 using ESS.Domain.Interfaces;
 using ESS.Infrastructure.MultiTenancy;
 using Finbuckle.MultiTenant.Abstractions;
+using ESS.Domain.Entities.Users;
+using ESS.Infrastructure.Persistence.Configurations.Users;
 
 namespace ESS.Infrastructure.Persistence;
 
@@ -15,6 +17,7 @@ public class TenantDbContext : DbContext
     private readonly IConfiguration _configuration;
 
     // Add DbSet properties for tenant-specific entities
+    public virtual DbSet<User> Users => Set<User>();
 
     public TenantDbContext(
         DbContextOptions<TenantDbContext> options,
@@ -33,6 +36,11 @@ public class TenantDbContext : DbContext
             var connectionString = _tenantContext?.TenantInfo?.ConnectionString
                 ?? _configuration.GetConnectionString("TenantTemplateConnection");
 
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("No valid connection string found for tenant database.");
+            }
+
             optionsBuilder.UseNpgsql(connectionString,
                 npgsqlOptionsAction: sqlOptions =>
                 {
@@ -42,7 +50,6 @@ public class TenantDbContext : DbContext
                         errorCodesToAdd: null);
                 });
         }
-
         base.OnConfiguring(optionsBuilder);
     }
 
@@ -55,15 +62,15 @@ public class TenantDbContext : DbContext
             .Where(e => typeof(ITenantEntity).IsAssignableFrom(e.ClrType)))
         {
             var parameter = Expression.Parameter(entityType.ClrType, "entity");
-            var property = Expression.Property(parameter, "TenantId");
-            var tenantId = Expression.Constant(_tenantContext?.TenantInfo?.Id);
-            var filter = Expression.Lambda(Expression.Equal(property, tenantId), parameter);
+            var property = Expression.Property(parameter, nameof(ITenantEntity.TenantId));
 
+            // Get the tenant identifier with null check
+            var currentTenantId = _tenantContext?.TenantInfo?.Identifier ?? string.Empty;
+            var tenantId = Expression.Constant(currentTenantId, typeof(string));
+
+            var filter = Expression.Lambda(Expression.Equal(property, tenantId), parameter);
             modelBuilder.Entity(entityType.ClrType).HasQueryFilter(filter);
         }
-
-        // Apply configurations
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(TenantDbContext).Assembly);
 
         base.OnModelCreating(modelBuilder);
     }

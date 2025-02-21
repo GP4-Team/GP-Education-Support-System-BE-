@@ -15,11 +15,11 @@ services:
     networks:
       - ess_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres && psql -U postgres -d ESSCentral -c 'SELECT 1'"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
+      retries: 10
+      start_period: 10s
   redis:
     image: redis:alpine
     container_name: ess_redis
@@ -60,7 +60,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 30s
 
 networks:
   ess_network:
