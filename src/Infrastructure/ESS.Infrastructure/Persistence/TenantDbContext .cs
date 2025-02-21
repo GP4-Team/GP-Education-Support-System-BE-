@@ -74,13 +74,4 @@ public class TenantDbContext : DbContext
 
         base.OnModelCreating(modelBuilder);
     }
-
-
-
-    public DbSet<Media> Media { get; set; }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<Media>().HasIndex(m => m.ResourceId);
-    }
 }
