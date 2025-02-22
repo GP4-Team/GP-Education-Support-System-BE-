@@ -134,7 +134,8 @@ public class TenantResolutionMiddleware
             return;
         }
 
-        context.Items["CurrentTenant"] = tenant;
+        // Use the new extension method
+        context.SetCurrentTenant(tenant);
 
         if (!context.Response.HasStarted)
         {

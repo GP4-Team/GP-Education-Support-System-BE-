@@ -1,9 +1,11 @@
 using ESS.Application.Common.Interfaces;
 using ESS.Infrastructure.Caching;
 using ESS.Infrastructure.DomainEvents;
+using ESS.Infrastructure.MultiTenancy;
 using ESS.Infrastructure.MultiTenancy.TenantResolution;
 using ESS.Infrastructure.Persistence;
 using ESS.Infrastructure.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,6 +48,8 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString);
         });
 
+        services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+
         // Register Domain Event Dispatcher
         services.AddScoped<DomainEventDispatcher>();
 
@@ -59,6 +63,7 @@ public static class DependencyInjection
         services.AddScoped<TenantMigrationTracker>();
         services.AddScoped<DatabaseMigrationService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ITenantContextAccessor, TenantContextAccessor>();
 
         return services;
     }
