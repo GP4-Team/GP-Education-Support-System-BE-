@@ -10,4 +10,6 @@ public interface ITenantService
     Task<IEnumerable<string>> GetAllTenantDomainsAsync();
     Task InvalidateTenantCacheAsync(string domain);
     Task<string> GetTenantConnectionStringAsync(string tenantId);
+    string GetTenantId();
+    bool IsTenantActive();
 }

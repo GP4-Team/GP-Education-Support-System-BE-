@@ -6,7 +6,7 @@ namespace ESS.Domain.Entities;
 
 public class Tenant : BaseEntity
 {
-    public Guid Id { get; private set; }
+    public new Guid Id { get; set; }
     public string Name { get; private set; } = string.Empty;
     public string Identifier { get; private set; } = string.Empty;
     public string? ConnectionString { get; private set; }

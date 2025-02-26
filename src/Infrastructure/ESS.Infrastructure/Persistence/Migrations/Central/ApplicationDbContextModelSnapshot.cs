@@ -22,6 +22,88 @@ namespace ESS.Infrastructure.Persistence.Migrations.Central
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ESS.Domain.Entities.Media.Media", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Collection")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsTemporary")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MediaCollectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResourceType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("TempGuid")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MediaCollectionId");
+
+                    b.HasIndex("TenantId", "ResourceId", "ResourceType");
+
+                    b.ToTable("Media");
+                });
+
+            modelBuilder.Entity("ESS.Domain.Entities.Media.MediaCollection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AllowedTypes")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long>("MaxFileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("MediaCollections");
+                });
+
             modelBuilder.Entity("ESS.Domain.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -178,6 +260,52 @@ namespace ESS.Infrastructure.Persistence.Migrations.Central
                     b.ToTable("TenantSettings");
                 });
 
+            modelBuilder.Entity("ESS.Domain.Entities.Media.Media", b =>
+                {
+                    b.HasOne("ESS.Domain.Entities.Media.MediaCollection", "MediaCollection")
+                        .WithMany("Media")
+                        .HasForeignKey("MediaCollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("ESS.Domain.ValueObjects.Media.MediaFile", "File", b1 =>
+                        {
+                            b1.Property<Guid>("MediaId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("FileName")
+                                .IsRequired()
+                                .HasColumnType("text")
+                                .HasColumnName("FileName");
+
+                            b1.Property<string>("FileType")
+                                .IsRequired()
+                                .HasColumnType("text")
+                                .HasColumnName("FileType");
+
+                            b1.Property<string>("MimeType")
+                                .IsRequired()
+                                .HasColumnType("text")
+                                .HasColumnName("MimeType");
+
+                            b1.Property<long>("Size")
+                                .HasColumnType("bigint")
+                                .HasColumnName("FileSize");
+
+                            b1.HasKey("MediaId");
+
+                            b1.ToTable("Media");
+
+                            b1.WithOwner()
+                                .HasForeignKey("MediaId");
+                        });
+
+                    b.Navigation("File")
+                        .IsRequired();
+
+                    b.Navigation("MediaCollection");
+                });
+
             modelBuilder.Entity("ESS.Domain.Entities.TenantAuditLog", b =>
                 {
                     b.HasOne("ESS.Domain.Entities.Tenant", "Tenant")
@@ -209,6 +337,11 @@ namespace ESS.Infrastructure.Persistence.Migrations.Central
                         .IsRequired();
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("ESS.Domain.Entities.Media.MediaCollection", b =>
+                {
+                    b.Navigation("Media");
                 });
 
             modelBuilder.Entity("ESS.Domain.Entities.Tenant", b =>

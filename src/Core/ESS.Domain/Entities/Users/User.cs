@@ -19,7 +19,7 @@ public class User : BaseEntity, ITenantEntity
 
     private User() { }
 
-    public Guid Id { get; set; }
+    public new Guid Id { get; set; }
     public string Username { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public string FirstName { get; private set; } = string.Empty;

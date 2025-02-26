@@ -12,6 +12,8 @@ using Microsoft.EntityFrameworkCore;
 using ESS.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.OpenApi.Models;
+using ESS.API.Extensions;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -255,4 +257,7 @@ catch (Exception ex)
 {
     app.Logger.LogError(ex, "An error occurred while initializing/migrating the databases");
 }
+
+app.UseFileValidation();
+
 app.Run();

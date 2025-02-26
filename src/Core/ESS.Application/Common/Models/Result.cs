@@ -1,49 +1,33 @@
-using MediatR;
-
+// src/Core/ESS.Application/Common/Models/Result.cs
 namespace ESS.Application.Common.Models;
-
-public class Result<T>
-{
-    public bool IsSuccess { get; }
-    public T Value { get; }
-    public string Error { get; }
-    public bool IsFailure => !IsSuccess;
-
-    protected internal Result(bool isSuccess, T value, string error)
-    {
-        if (isSuccess && error != string.Empty)
-            throw new InvalidOperationException();
-        if (!isSuccess && error == string.Empty)
-            throw new InvalidOperationException();
-
-        IsSuccess = isSuccess;
-        Value = value;
-        Error = error;
-    }
-}
 
 public class Result
 {
-    public bool IsSuccess { get; }
-    public string Error { get; }
-    public bool IsFailure => !IsSuccess;
+    public bool IsSuccess { get; protected set; }
+    public string[] Error { get; protected set; }
+    public bool Succeeded => IsSuccess;
+    public string[] Errors => Error;
 
-    protected Result(bool isSuccess, string error)
+    protected Result(bool isSuccess, string[] error)
     {
-        if (isSuccess && error != string.Empty)
-            throw new InvalidOperationException();
-        if (!isSuccess && error == string.Empty)
-            throw new InvalidOperationException();
-
         IsSuccess = isSuccess;
         Error = error;
     }
 
-    public static Result Success() => new(true, string.Empty);
-    public static Result Failure(string error) => new(false, error);
-    public static Result<T> Success<T>(T value) => new(true, value, string.Empty);
-    public static Result<T> Failure<T>(string error) => new(false, default!, error);
+    public static Result Success() => new(true, Array.Empty<string>());
+    public static Result<T> Success<T>(T value) => new(true, Array.Empty<string>(), value);
+    public static Result Failure(params string[] errors) => new(false, errors);
+    public static Result<T> Failure<T>(params string[] errors) => new(false, errors, default);
+}
 
-    public static implicit operator Result(Result<Unit> result)
-        => new(result.IsSuccess, result.Error);
+public class Result<T> : Result
+{
+    public T Value { get; private set; }
+    public T Data => Value;
+
+    internal Result(bool isSuccess, string[] error, T value)
+        : base(isSuccess, error)
+    {
+        Value = value;
+    }
 }

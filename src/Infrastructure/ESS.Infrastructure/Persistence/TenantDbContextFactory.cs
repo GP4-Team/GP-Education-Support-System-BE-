@@ -34,6 +34,7 @@ public class TenantDbContextFactory : IDesignTimeDbContextFactory<TenantDbContex
 // Mock class for design-time migrations
 public class MockTenantContextAccessor : IMultiTenantContextAccessor<EssTenantInfo>, IMultiTenantContextAccessor
 {
-    IMultiTenantContext<EssTenantInfo>? IMultiTenantContextAccessor<EssTenantInfo>.MultiTenantContext => null;
-    IMultiTenantContext? IMultiTenantContextAccessor.MultiTenantContext => null;
+    public IMultiTenantContext<EssTenantInfo>? MultiTenantContext => null;
+    IMultiTenantContext<EssTenantInfo> IMultiTenantContextAccessor<EssTenantInfo>.MultiTenantContext => MultiTenantContext!;
+    IMultiTenantContext? IMultiTenantContextAccessor.MultiTenantContext => MultiTenantContext;
 }
