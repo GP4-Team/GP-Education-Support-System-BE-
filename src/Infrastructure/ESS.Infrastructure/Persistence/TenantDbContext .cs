@@ -1,14 +1,15 @@
-﻿using Finbuckle.MultiTenant;
+﻿// src/Infrastructure/ESS.Infrastructure/Persistence/TenantDbContext.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Linq.Expressions;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
+using Finbuckle.MultiTenant;
 using ESS.Domain.Interfaces;
 using ESS.Infrastructure.MultiTenancy;
 using Finbuckle.MultiTenant.Abstractions;
 using ESS.Domain.Entities.Users;
+using ESS.Domain.Entities.Media;
 using ESS.Infrastructure.Persistence.Configurations.Users;
-
+using ESS.Infrastructure.Persistence.Configurations.Media;
 namespace ESS.Infrastructure.Persistence;
 
 public class TenantDbContext : DbContext
@@ -18,6 +19,8 @@ public class TenantDbContext : DbContext
 
     // Add DbSet properties for tenant-specific entities
     public virtual DbSet<User> Users => Set<User>();
+    public virtual DbSet<Domain.Entities.Media.Media> Media => Set<Domain.Entities.Media.Media>();
+    public virtual DbSet<MediaCollection> MediaCollections => Set<MediaCollection>();
 
     public TenantDbContext(
         DbContextOptions<TenantDbContext> options,
@@ -56,6 +59,11 @@ public class TenantDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("public");
+
+        // Apply configurations
+        modelBuilder.ApplyConfiguration(new UserConfiguration());
+        modelBuilder.ApplyConfiguration(new MediaConfiguration());
+        modelBuilder.ApplyConfiguration(new MediaCollectionConfiguration());
 
         // Apply tenant filter to all entity types that implement ITenantEntity
         foreach (var entityType in modelBuilder.Model.GetEntityTypes()

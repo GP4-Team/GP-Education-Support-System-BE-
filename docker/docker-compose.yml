@@ -46,6 +46,10 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=ESSCentral;Username=postgres;Password=postgres
       - Redis__Configuration=redis:6379,password=Redis123!
+      - AWS__S3__AccessKey=${AWS_ACCESS_KEY}
+      - AWS__S3__SecretKey=${AWS_SECRET_KEY}
+      - AWS__S3__Region=${AWS_REGION}
+      - AWS__S3__BucketName=${AWS_BUCKET_NAME}
     ports:
       - "8080:80"
     depends_on:
